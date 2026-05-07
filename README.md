@@ -9,7 +9,7 @@
        style="max-width: 100%;">
 </video>
 
-![S4 Unified Slicer Web UI Interface](docs/img/screenshot.png)
+![S4 Unified Slicer Web UI Interface](docs/img/screenshot.webp)
 
 A **single-step CLI + web UI** that turns an STL into a non-planar 4-axis
 (C, X, Z, B) G-code program for a polar 4-axis printer — based on
