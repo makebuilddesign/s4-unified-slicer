@@ -9,13 +9,14 @@ A **single-step CLI + web UI** that turns an STL into a non-planar 4-axis
 
 **v2.0** keeps the upstream algorithms intact but adds:
 
+> [!WARNING]
+> **Experimental Feature**: The "Fast Backend" is currently in active development and may produce incorrect results or fail on certain geometries. For production work or verification, please use the **Reference Backend** (`--reference` on CLI or uncheck "Fast" in the UI).
+
 1. A **web UI** (`s4slicer-web`) with STL upload, live progress,
    and 3-D preview of the final non-planar 4-axis path.
-2. A **vectorized "fast" backend** (NumPy/Numba) that is **~10-15× faster**
-   than the original reference implementation.
+2. A **vectorized "fast" backend** (NumPy/Numba) — **[WIP / Experimental]**
 3. A unified `s4_slicer.pipeline.run_pipeline()` shared by CLI and UI.
-4. **Enhanced 4-Axis Visualization**: A high-fidelity path preview using
-   B-axis tilt (hue) and Z-quantization (zebra bands) for better inspection.
+4. **Live Path Visualization**: Real-time 4-axis path preview.
 
 ---
 
@@ -69,7 +70,7 @@ Then open the URL in a browser. The UI provides a streamlined 4-axis workflow:
 * **Upload STL**: Drag and drop your model or click the upload zone.
 * **Configure Parameters**: Key knobs like max overhang, iterations, and the fast/reference toggle.
 * **Slice**: Click the **Slice** button to stream real-time progress and logs.
-* **Inspect**: The 4-axis path preview uses **B-tilt (Hue)** to show nozzle tilt and **Z-zebra (Brightness)** to clearly distinguish layers.
+* **Inspect**: The 4-axis path preview shows extrusions in green and travel in orange.
 * **Download**: Buttons for the final `.gcode` and the deformed `.stl`.
 
 The UI is self-contained: `three.js` and a small custom OrbitControls
@@ -105,20 +106,16 @@ All upstream options still work; see `s4slicer --help`.
 
 ---
 
-## Performance
+## Performance (Experimental)
 
-The **fast backend** is on by default. A typical end-to-end run on the
-canonical example, on a single CPU core:
+The **fast backend** is currently considered **BETA**. While it achieves significant speedups, it is under active maintenance to reach full functional parity with the reference implementation. For production work, use the **reference** backend.
 
-| backend                      | total time | gcode-transform | speedup |
-| ---------------------------- | ---------- | --------------- | ------- |
-| **reference** (`--reference`)| **80.8 s** | ~38 s           | 1×      |
-| **fast** (default, no JIT)   |  9.0 s     |   1.0 s         | ~9×     |
-| **fast + numba JIT (cached)**|  6.0 s     |   0.4 s         | **~13×**|
+| backend                      | total time | gcode-transform | status |
+| ---------------------------- | ---------- | --------------- | ------ |
+| **reference** (`--reference`)| **80.8 s** | ~38 s           | Production |
+| **fast** (default)           |  6.0 s     |   0.4 s         | **Experimental** |
 
-All three produce structurally-identical 4-axis polar/cartesian gcode
-with the same line counts (within ±5 % depending on which planar slicer
-PrusaSlicer chose for infill perimeters that pass).
+All backends produce 4-axis polar/cartesian gcode, but the fast version is still being validated for corner cases.
 
 **What's actually faster?** The original pipeline spent ≈ 50 % of its
 total runtime in `gcode_transform.transform_gcode`, mostly inside a

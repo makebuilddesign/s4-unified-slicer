@@ -332,60 +332,43 @@
     const v = viewers.path;
     while (v.content.children.length) v.content.remove(v.content.children[0]);
     const pts = prev.points;
-    const rots = prev.rotation;
     if (!pts || pts.length < 2) {
       addLog("[ui] empty path preview", "warn");
       return;
     }
+
     const segE = []; const segT = [];
-    const colE = []; 
-    const c = new THREE.Color();
 
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i-1]; const b = pts[i];
       const dx = a[0]-b[0], dy = a[1]-b[1], dz = a[2]-b[2];
       const d2 = dx*dx + dy*dy + dz*dz;
       if (d2 > 10000) continue;
-      
-      const dist = Math.sqrt(d2);
 
       if (prev.extruding[i] && prev.extruding[i-1]) {
         segE.push(...a, ...b);
-        // Color based on segment length (0.0 to 5.0mm scale)
-        const t = Math.min(1.0, dist / 5.0);
-        c.setHSL(0.7 * (1.0 - t), 1.0, 0.5); // Blue (short) -> Red (long)
-        colE.push(c.r, c.g, c.b, c.r, c.g, c.b);
       } else {
         segT.push(...a, ...b);
       }
     }
 
-    const mkLine = (arr, colArr, baseCol, opacity, useColors) => {
+    const mkLine = (arr, col, opacity) => {
       if (!arr.length) return null;
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(arr), 3));
-      if (useColors && colArr) {
-        g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colArr), 3));
-      }
-      const m = new THREE.LineBasicMaterial({ 
-        color: useColors ? 0xffffff : baseCol, 
-        vertexColors: useColors,
-        transparent: true, 
-        opacity 
-      });
+      const m = new THREE.LineBasicMaterial({ color: col, transparent: true, opacity });
       return new THREE.LineSegments(g, m);
     };
 
-    const lE = mkLine(segE, colE, 0x66ffa0, 0.95, true);
+    const lE = mkLine(segE, 0x66ffa0, 0.95);
     if (lE) v.content.add(lE);
-    
-    const lT = mkLine(segT, null, 0xff8a65, 0.15, false);
+    const lT = mkLine(segT, 0xffaa00, 0.25);
     if (lT) v.content.add(lT);
 
     const box = new THREE.Box3().setFromObject(v.content);
-    fitCamera(v, box);
+    if (!box.isEmpty()) fitCamera(v, box);
     $("vp-path-ph").style.display = "none";
-    $("vp-path-meta").textContent = `${prev.n_lines.toLocaleString()} lines · showing ${prev.downsampled_to.toLocaleString()}`;
+    $("vp-path-meta").textContent = `${prev.n_lines.toLocaleString()} lines · ${prev.downsampled_to.toLocaleString()} pts`;
   }
 
   // initial empty state

@@ -67,7 +67,7 @@ class PipelineConfig:
     max_extrusion_mult: float = 10.0
     cartesian: bool = False
     # backend
-    fast: bool = True               # use vectorised modules
+    fast: bool = False               # [Experimental] use vectorised modules
     quiet: bool = False
 
 
