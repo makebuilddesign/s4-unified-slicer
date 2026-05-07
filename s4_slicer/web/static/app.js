@@ -379,35 +379,34 @@
     const mkLine = (arr, colArr, baseCol, opacity, useColors) => {
       if (!arr.length) return null;
       const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(arr), 3));
+      const posAttr = new THREE.BufferAttribute(new Float32Array(arr), 3);
+      g.setAttribute("position", posAttr);
       
       const group = new THREE.Group();
-
       if (useColors && colArr) {
         g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colArr), 3));
       }
 
-      // 1. Line segments
       const m = new THREE.LineBasicMaterial({ 
         color: useColors ? 0xffffff : baseCol, 
         vertexColors: useColors,
         transparent: true, 
-        opacity,
-        linewidth: 2 // may be ignored by some browsers, so we add points too
+        opacity
       });
-      group.add(new THREE.LineSegments(g, m));
 
-      // 2. Points at each vertex to increase visual thickness
-      if (useColors) {
-          const pm = new THREE.PointsMaterial({
-              size: 2.5,
-              vertexColors: true,
-              transparent: true,
-              opacity: opacity * 0.8,
-              sizeAttenuation: false
-          });
-          group.add(new THREE.Points(g, pm));
-      }
+      // Render the line segments multiple times with tiny offsets to fake thickness
+      // This is a common workaround for WebGL's 1px line limit.
+      const offsets = [
+        [0,0,0], 
+        [0.05, 0.05, 0], [-0.05, -0.05, 0], 
+        [0.05, -0.05, 0], [-0.05, 0.05, 0]
+      ];
+      
+      offsets.forEach(off => {
+        const line = new THREE.LineSegments(g, m);
+        line.position.set(...off);
+        group.add(line);
+      });
 
       return group;
     };

@@ -1,6 +1,6 @@
 # S4 Unified Slicer — v2.0
 
-![S4 Unified Slicer Web UI Interface](docs/img/screenshot_v2.png)
+![S4 Unified Slicer Web UI Interface](docs/img/screenshot.png)
 
 A **single-step CLI + web UI** that turns an STL into a non-planar 4-axis
 (R, θ, Z, B) G-code program for a Core R-Theta style printer — based on
