@@ -22,7 +22,6 @@ class GCodeParams:
     retraction_length: float = 1.0
     rotation_max_delta_deg: float = 1.0
     max_extrusion_multiplier: float = 10.0
-    output_polar: bool = True             # else cartesian X/Y/Z/B
 
 
 def _tet_volume(p1, p2, p3, p4):
@@ -293,8 +292,7 @@ def transform_gcode(
     prev_theta = 0.0
     theta_acc = 0.0
     n_lines = 0
-    cartesian_path = out_gcode.replace(".gcode", "_preview.gcode") if ".gcode" in out_gcode else out_gcode + "_preview.gcode"
-    with open(out_gcode, "w") as fh, open(cartesian_path, "w") as fh_cart:
+    with open(out_gcode, "w") as fh:
         # Headers for polar file
         fh.write("; S4 Unified Slicer — non-planar 4-axis output (polar)\n")
         fh.write("G94 ; mm/min feed\n")
@@ -305,13 +303,6 @@ def transform_gcode(
         fh.write("G90 ; absolute positioning\n")
         fh.write(f"G0 C0 X0 Z20 B0 ; go to start\n")
         fh.write("G93 ; inverse time feed\n")
-        # Headers for cartesian preview file
-        fh_cart.write("; S4 Unified Slicer — non-planar 4-axis output (cartesian preview)\n")
-        fh_cart.write("; This file matches the Web UI preview exactly\n")
-        fh_cart.write("G90 ; absolute positioning\n")
-        fh_cart.write("M83 ; relative extrusion\n")
-        fh_cart.write("G1 E10 ; prime extruder\n")
-        fh_cart.write("G0 X0 Y0 Z20 B0 ; go to start\n")
         for pt in new_points:
             pos = pt["position"]
             rot = pt["rotation"]
@@ -328,13 +319,8 @@ def transform_gcode(
                 dt += 2 * np.pi
             theta_acc += dt
 
-            # --- Polar file (for machine) ---
-            if p.output_polar:
-                s = (f"{pt['command']} C{np.rad2deg(theta_acc):.5f} "
-                     f"X{r:.5f} Z{z:.5f} B{np.rad2deg(rot):.5f}")
-            else:
-                s = (f"{pt['command']} X{pos[0]:.5f} Y{pos[1]:.5f} "
-                     f"Z{pos[2]:.5f} B{np.rad2deg(rot):.5f}")
+            s = (f"{pt['command']} C{np.rad2deg(theta_acc):.5f} "
+                 f"X{r:.5f} Z{z:.5f} B{np.rad2deg(rot):.5f}")
             if pt["extrusion"] is not None:
                 s += f" E{pt['extrusion']:.4f}"
             no_feed = False
@@ -348,20 +334,8 @@ def transform_gcode(
             if no_feed:
                 fh.write("G93\n")
 
-            # --- Cartesian preview file (matches Web UI exactly) ---
-            s_cart = (f"{pt['command']} X{pos[0]:.5f} Y{pos[1]:.5f} "
-                      f"Z{pos[2]:.5f} B{np.rad2deg(rot):.5f}")
-            if pt["extrusion"] is not None:
-                s_cart += f" E{pt['extrusion']:.4f}"
-            if pt["inv_time_feed"] is not None:
-                s_cart += f" F{pt['inv_time_feed']:.4f}"
-            else:
-                s_cart += " F20000"
-            fh_cart.write(s_cart + "\n")
-
             n_lines += 1
             prev_theta = theta
     log(f"[gcode] wrote {n_lines} motion lines to {out_gcode}")
-    log(f"[gcode] wrote cartesian preview to {cartesian_path}")
     return out_gcode
 

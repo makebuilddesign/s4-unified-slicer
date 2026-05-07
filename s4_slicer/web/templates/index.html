@@ -528,8 +528,6 @@
         <div class="row"><label>Perimeters</label> <input id="p-perimeters" type="number" step="1" value="2"></div>
         <div class="row"><label>Fill density</label> <input id="p-fill-density" type="text" value="15%"></div>
         <div class="row"><label>Seg size (mm)</label> <input id="p-seg-size" type="number" step="0.1" value="0.6"></div>
-        <div class="row"><label>Cartesian output</label> <input id="p-cartesian" type="checkbox"></div>
-        <div class="row"><label>Fast backend (≈100×)</label> <input id="p-fast" type="checkbox" checked></div>
       </div>
 
       <div class="actions">
@@ -578,12 +576,12 @@
           <div class="canvas-wrap">
             <canvas id="canvas-path"></canvas>
             <div class="placeholder" id="vp-path-ph">path appears here once slicing finishes</div>
-            <div class="legend">
-              <span class="dot" style="background:linear-gradient(90deg, #4fc, #f4c)"></span>b-tilt (hue)
-              <span style="margin-left:10px"></span>
-              <span class="dot" style="background:repeating-linear-gradient(90deg, #555, #555 4px, #aaa 4px, #aaa 8px)"></span>z-zebra (brightness)
-              <span style="margin-left:10px"></span>
-              <span class="dot" style="background:#ff8a65; opacity: 0.3"></span>travel
+            <div class="legend" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <label style="cursor:pointer; display:inline-flex; align-items:center; gap:4px; font-size:11px;">
+                <input id="toggle-layer-colors" type="checkbox" checked style="accent-color:#66ffa0;"> layer colors
+              </label>
+              <span class="dot" style="background:#66ffa0"></span>extrude
+              <span class="dot" style="background:#ffaa00; opacity:0.35"></span>travel
             </div>
           </div>
         </div>

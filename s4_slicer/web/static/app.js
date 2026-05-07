@@ -83,15 +83,12 @@
       perimeters:   +$("p-perimeters").value,
       fill_density: $("p-fill-density").value,
       seg_size:     +$("p-seg-size").value,
-      cartesian:    $("p-cartesian").checked,
-      fast:         $("p-fast").checked,
     };
   }
 
   async function startSlice() {
     if (!state.job_id) return;
-    state.polar = !$("p-cartesian").checked;
-    $("backend-tag").textContent = $("p-fast").checked ? "fast backend" : "reference backend";
+    $("backend-tag").textContent = "reference backend";
     $("start-btn").disabled = true;
     $("term-status").textContent = "running";
     setProgress(0, "starting…");
@@ -229,23 +226,15 @@
   function addDownloadButtons(jobId) {
     const r = $("results");
     
-    // 1. Cartesian (Visualizer) G-code
-    const a1 = document.createElement("a");
-    a1.href = `/api/download/${jobId}/gcode_cartesian`;
-    a1.className = "pill ok"; a1.style.textDecoration = "none";
-    a1.textContent = "↓ download .gcode (Cartesian)"; a1.target = "_blank";
-    a1.title = "Raw XYZ coordinates matching the preview, perfect for your simulator.";
-    r.appendChild(a1);
-    
-    // 2. Polar (Machine) G-code
+    // 1. Polar (Machine) G-code
     const aPolar = document.createElement("a");
-    aPolar.href = `/api/download/${jobId}/gcode_polar`;
+    aPolar.href = `/api/download/${jobId}/gcode`;
     aPolar.className = "pill ok"; aPolar.style.textDecoration = "none";
-    aPolar.textContent = "↓ download .gcode (Polar)"; aPolar.target = "_blank";
-    aPolar.title = "Compensated C/X/Z/B machine instructions for the physical 4-axis Slicer.";
+    aPolar.textContent = "↓ download .gcode"; aPolar.target = "_blank";
+    aPolar.title = "Un-deformed Polar C/X/Z/B machine instructions for the physical 4-axis Slicer.";
     r.appendChild(aPolar);
     
-    // 3. Deformed STL
+    // 2. Deformed STL
     const a2 = document.createElement("a");
     a2.href = `/api/download/${jobId}/stl`;
     a2.className = "pill"; a2.style.textDecoration = "none";
@@ -273,6 +262,9 @@
     const ax = new THREE.AxesHelper(15); scene.add(ax);
     const controls = new THREE.OrbitControls(camera, canvas);
     controls.enableDamping = true;
+    controls.rotateSpeed = 0.5;
+    controls.zoomSpeed   = 0.5;
+    controls.panSpeed    = 0.5;
     function resize() {
       const w = canvas.clientWidth; const h = canvas.clientHeight;
       if (w === 0 || h === 0) return;
@@ -341,101 +333,101 @@
     $("vp-input-meta").textContent = `${prev.vertices.length.toLocaleString()} verts · ${prev.faces.length.toLocaleString()} faces`;
   }
 
+  // Palette for alternating colors along the continuous extrusion path.
+  const PALETTE = [
+    new THREE.Color(0x66ffa0),  // green
+    new THREE.Color(0x66ccff),  // blue
+    new THREE.Color(0xffaa66),  // orange
+    new THREE.Color(0xcc66ff),  // purple
+  ];
+  const LINES_PER_COLOR = 200; // switch color every N extrusion segments
+
+  // Cache the last preview data so we can re-render on toggle without re-fetching.
+  let lastPathPreview = null;
+
   function renderPath(prev) {
+    lastPathPreview = prev;
+    _doRenderPath(prev, $("toggle-layer-colors").checked);
+  }
+
+  function _doRenderPath(prev, useMultiColor) {
     const v = viewers.path;
     while (v.content.children.length) v.content.remove(v.content.children[0]);
     const pts = prev.points;
-    const rots = prev.rotation;
     if (!pts || pts.length < 2) {
       addLog("[ui] empty path preview", "warn");
       return;
     }
-    // Build line segments — split by extrusion vs travel for two colours.
-    const segE = []; const segT = [];
-    const colE = []; 
-    
-    // Find rotation range for normalisation
-    let minR = 1e9, maxR = -1e9;
-    if (rots && rots.length) {
-      for (let i = 0; i < rots.length; i++) {
-        if (rots[i] < minR) minR = rots[i];
-        if (rots[i] > maxR) maxR = rots[i];
+
+    const segT = [];  // travel
+
+    if (useMultiColor) {
+      // Vertex-colored extrusion: color cycles every LINES_PER_COLOR segments
+      // along the continuous extrusion path, like multicolor filament.
+      const segE = [];
+      const colE = [];
+      let extrudeCount = 0;
+
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        const dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
+        if (dx * dx + dy * dy + dz * dz > 10000) continue;
+        if (prev.extruding[i] && prev.extruding[i - 1]) {
+          segE.push(...a, ...b);
+          const c = PALETTE[Math.floor(extrudeCount / LINES_PER_COLOR) % PALETTE.length];
+          colE.push(c.r, c.g, c.b, c.r, c.g, c.b);
+          extrudeCount++;
+        } else {
+          segT.push(...a, ...b);
+        }
+      }
+
+      if (segE.length) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(segE), 3));
+        g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colE), 3));
+        const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9 });
+        v.content.add(new THREE.LineSegments(g, m));
+      }
+    } else {
+      // Uniform green — original look.
+      const segE = [];
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        const dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
+        if (dx * dx + dy * dy + dz * dz > 10000) continue;
+        if (prev.extruding[i] && prev.extruding[i - 1]) {
+          segE.push(...a, ...b);
+        } else {
+          segT.push(...a, ...b);
+        }
+      }
+      if (segE.length) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(segE), 3));
+        const m = new THREE.LineBasicMaterial({ color: 0x66ffa0, transparent: true, opacity: 0.95 });
+        v.content.add(new THREE.LineSegments(g, m));
       }
     }
-    const rRange = (maxR - minR) || 1;
-    const c = new THREE.Color();
 
-    for (let i = 1; i < pts.length; i++) {
-      const a = pts[i-1]; const b = pts[i];
-      const dx = a[0]-b[0], dy = a[1]-b[1], dz = a[2]-b[2];
-      if (dx*dx + dy*dy + dz*dz > 10000) continue;
-      
-      if (prev.extruding[i] && prev.extruding[i-1]) {
-        segE.push(...a, ...b);
-        // Color based on B-axis tilt (Hue) and Z-quantisation (Brightness/Zebra)
-        // This makes layers distinct while highlighting non-planar work.
-        const rVal = rots ? rots[i] : 0;
-        const zVal = b[2];
-        
-        // Hue: Blue (0) for min tilt, Red (0.66) for max tilt
-        const h = 0.5 + 0.5 * ((rVal - minR) / rRange); 
-        // Brightness: alternate every 0.8mm (approx 2-4 layers)
-        const l = 0.4 + 0.25 * (Math.floor(zVal / 0.8) % 2);
-        
-        c.setHSL(h % 1.0, 0.8, l);
-        colE.push(c.r, c.g, c.b, c.r, c.g, c.b);
-      } else {
-        segT.push(...a, ...b);
-      }
-    }
-
-    const mkLine = (arr, colArr, baseCol, opacity, useColors) => {
-      if (!arr.length) return null;
+    // Travel lines (same in both modes).
+    if (segT.length) {
       const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(arr), 3));
-      
-      const group = new THREE.Group();
-
-      if (useColors && colArr) {
-        g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colArr), 3));
-      }
-
-      // 1. Line segments
-      const m = new THREE.LineBasicMaterial({ 
-        color: useColors ? 0xffffff : baseCol, 
-        vertexColors: useColors,
-        transparent: true, 
-        opacity,
-        linewidth: 2 // may be ignored by some browsers, so we add points too
-      });
-      group.add(new THREE.LineSegments(g, m));
-
-      // 2. Points at each vertex to increase visual thickness
-      if (useColors) {
-          const pm = new THREE.PointsMaterial({
-              size: 2.5,
-              vertexColors: true,
-              transparent: true,
-              opacity: opacity * 0.8,
-              sizeAttenuation: false
-          });
-          group.add(new THREE.Points(g, pm));
-      }
-
-      return group;
-    };
-
-    const lE = mkLine(segE, colE, 0x66ffa0, 0.95, true);
-    if (lE) v.content.add(lE);
-    
-    const lT = mkLine(segT, null, 0xff8a65, 0.15, false);
-    if (lT) v.content.add(lT);
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(segT), 3));
+      const m = new THREE.LineBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.25 });
+      v.content.add(new THREE.LineSegments(g, m));
+    }
 
     const box = new THREE.Box3().setFromObject(v.content);
-    fitCamera(v, box);
+    if (!box.isEmpty()) fitCamera(v, box);
     $("vp-path-ph").style.display = "none";
-    $("vp-path-meta").textContent = `${prev.n_lines.toLocaleString()} lines · showing ${prev.downsampled_to.toLocaleString()}`;
+    $("vp-path-meta").textContent = `${prev.n_lines.toLocaleString()} lines · ${prev.downsampled_to.toLocaleString()} pts`;
   }
+
+  // Toggle handler — re-render the existing data without re-fetching.
+  $("toggle-layer-colors").addEventListener("change", () => {
+    if (lastPathPreview) _doRenderPath(lastPathPreview, $("toggle-layer-colors").checked);
+  });
 
   // initial empty state
   clearStages();

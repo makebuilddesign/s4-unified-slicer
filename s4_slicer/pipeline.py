@@ -65,9 +65,6 @@ class PipelineConfig:
     retraction_length: float = 1.0
     rotation_max_delta: float = 1.0
     max_extrusion_mult: float = 10.0
-    cartesian: bool = False
-    # backend
-    fast: bool = True               # use vectorised modules
     quiet: bool = False
 
 
@@ -80,13 +77,8 @@ def run_pipeline(stl_in: str,
     """
     progress = progress or NullProgress()
 
-    # Pick fast vs reference implementations.
-    if cfg.fast:
-        from .deform_fast          import DeformParams, S4Deformer
-        from .gcode_transform_fast import GCodeParams, transform_gcode
-    else:
-        from .deform               import DeformParams, S4Deformer
-        from .gcode_transform      import GCodeParams, transform_gcode
+    from .deform               import DeformParams, S4Deformer
+    from .gcode_transform      import GCodeParams, transform_gcode
     from .slice_engine import SliceParams, find_slicer, slice_stl
 
     log = (lambda *a, **k: None) if cfg.quiet else (
@@ -110,7 +102,6 @@ def run_pipeline(stl_in: str,
     log(f"[main] working dir: {wd}")
     log(f"[main] input STL: {stl_in}")
     log(f"[main] output gcode: {out}")
-    log(f"[main] backend: {'fast (vectorised)' if cfg.fast else 'reference'}")
 
     # Pre-flight checks
     if not (cfg.skip_slice or cfg.input_gcode):
@@ -141,10 +132,7 @@ def run_pipeline(stl_in: str,
         part_offset=tuple(cfg.offset),
         make_manifold=cfg.make_manifold,
     )
-    if cfg.fast:
-        deformer = S4Deformer(dp, log=log, progress=progress)
-    else:
-        deformer = S4Deformer(dp, log=log)
+    deformer = S4Deformer(dp, log=log)
     input_tet, deformed_tet = deformer.run(str(stl_in))
 
     deformed_stl = wd / f"{stl_in.stem}_deformed.stl"
@@ -197,14 +185,8 @@ def run_pipeline(stl_in: str,
         retraction_length=cfg.retraction_length,
         rotation_max_delta_deg=cfg.rotation_max_delta,
         max_extrusion_multiplier=cfg.max_extrusion_mult,
-        output_polar=not cfg.cartesian,
     )
-    if cfg.fast:
-        transform_gcode(input_tet, deformed_tet, str(sliced_gcode),
-                        str(out), gp, log=log, progress=progress)
-    else:
-        transform_gcode(input_tet, deformed_tet, str(sliced_gcode),
-                        str(out), gp, log=log)
+    transform_gcode(input_tet, deformed_tet, str(sliced_gcode), str(out), gp, log=log)
 
     elapsed = time.time() - t0
     log(f"[main] DONE in {elapsed:.1f}s — final 4-axis gcode: {out}")

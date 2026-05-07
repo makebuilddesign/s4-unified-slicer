@@ -180,8 +180,7 @@ def _runner(job: Job):
         # Build path preview from the final gcode.
         out_path = Path(result["output_gcode"])
         try:
-            job.path_preview = _build_path_preview(out_path,
-                                                   polar=not job.cfg.cartesian)
+            job.path_preview = _build_path_preview(out_path, polar=True)
         except Exception as e:
             job.progress.log(f"[runner] path-preview build failed: {e}", level="warn")
 
@@ -258,8 +257,6 @@ def make_app() -> FastAPI:
         cfg.workdir            = str(job.workdir)
         cfg.keep_intermediates = True
         cfg.output             = str(job.workdir / (job.stl_path.stem + ".gcode"))
-        # always vectorised in the UI:
-        cfg.fast = bool(body.get("fast", True)) if body else True
         job.cfg = cfg
         print(f"[web] starting job {job_id} with cfg: {job.cfg}")
         job.thread = threading.Thread(target=_runner, args=(job,), daemon=True)
@@ -327,24 +324,8 @@ def make_app() -> FastAPI:
         return JSONResponse(_stl_preview(Path(d)))
 
     # ----- download --------------------------------------------------------
-    @app.get("/api/download/{job_id}/gcode_cartesian")
-    def download_gcode_cartesian(job_id: str):
-        """Download the Cartesian X,Y,Z,B G-code matching the preview exactly."""
-        with JOBS_LOCK:
-            job = JOBS.get(job_id)
-        if job is None:
-            raise HTTPException(404, "Unknown job_id")
-        out = job.result.get("output_gcode") if job.result else None
-        if not out:
-            raise HTTPException(425, "Output not yet available")
-        cartesian_out = str(out).replace(".gcode", "_preview.gcode") if ".gcode" in str(out) else str(out) + "_preview.gcode"
-        if not Path(cartesian_out).exists():
-            raise HTTPException(425, "Cartesian output not yet available")
-        return FileResponse(cartesian_out, filename=Path(cartesian_out).name,
-                            media_type="text/plain")
-
-    @app.get("/api/download/{job_id}/gcode_polar")
-    def download_gcode_polar(job_id: str):
+    @app.get("/api/download/{job_id}/gcode")
+    def download_gcode(job_id: str):
         """Download the raw polar (C,X,Z,B) G-code for the actual machine."""
         with JOBS_LOCK:
             job = JOBS.get(job_id)
