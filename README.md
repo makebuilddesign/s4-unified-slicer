@@ -1,4 +1,4 @@
-# S4 Unified Slicer — v2.0
+# S4 Unified Slicer
 
 ![S4 Unified Slicer Web UI Interface](docs/img/screenshot.png)
 
@@ -7,7 +7,7 @@ A **single-step CLI + web UI** that turns an STL into a non-planar 4-axis
 [Joshua Bird's S4 Slicer](https://github.com/jyjblrd/S4_Slicer)
 (GPL-3.0; this work is too).
 
-**v2.0** keeps the upstream algorithms intact but adds:
+The unified slicer keeps the upstream algorithms intact but adds:
 
 > [!WARNING]
 > **Experimental Feature**: The "Fast Backend" is currently in active development and may produce incorrect results or fail on certain geometries. For production work or verification, please use the **Reference Backend** (`--reference` on CLI or uncheck "Fast" in the UI).
@@ -38,7 +38,7 @@ Pass `--cartesian` to get `X Y Z B` instead of polar `C X Z B`.
 ## Install
 
 ```bash
-unzip s4_unified_slicer_v2.zip
+unzip s4_unified_slicer.zip
 cd s4_unified_slicer
 pip install -r requirements.txt
 sudo apt-get install -y prusa-slicer xvfb            # planar slicer + offscreen GL
@@ -120,7 +120,7 @@ All backends produce 4-axis polar/cartesian gcode, but the fast version is still
 **What's actually faster?** The original pipeline spent ≈ 50 % of its
 total runtime in `gcode_transform.transform_gcode`, mostly inside a
 per-cell Python loop calling `_barycentric` and `_tet_volume`, and
-inside `pygcode.Line(...)` line-by-line parsing. v2 replaces:
+inside `pygcode.Line(...)` line-by-line parsing. This implementation replaces:
 
 * the per-cell barycentric / Kabsch / volume loop → vectorised numpy
   einsum + numba JIT (`s4_slicer/_jit.py`);
@@ -162,7 +162,7 @@ s4_unified_slicer/
 ├── setup.py                # `pip install .`
 ├── requirements.txt
 ├── README.md
-├── CHANGELOG.md            # what changed in v2
+├── CHANGELOG.md            # project changes
 ├── LICENSE                 # GPL-3.0 (inherited from upstream)
 ├── VERIFICATION.md
 └── s4_slicer/
