@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>S4 Unified Slicer — Web UI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #181b22;
+      --panel-2: #20242d;
+      --border: #2a2f3a;
+      --text: #d6d9e0;
+      --muted: #888c99;
+      --accent: #4fc3f7;
+      --accent-2: #66ffa0;
+      --warn: #ffb74d;
+      --err: #ff5c5c;
+      --ok: #66ffa0;
+      --travel: #ff8a65;
+      --extrude: #66ffa0;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: linear-gradient(90deg, #181b22, #0f1115);
+    }
+
+    header h1 {
+      font-size: 18px;
+      margin: 0;
+      background: linear-gradient(90deg, #4fc3f7, #66ffa0);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header .sub {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    header .badge {
+      background: #2a2f3a;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    main {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      overflow: auto;
+    }
+
+    .panel h2 {
+      font-size: 13px;
+      margin: 0 0 10px;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    .upload {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.15s;
+      background: var(--panel-2);
+      width: 100%;
+    }
+
+    .upload:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .upload.drag {
+      border-color: var(--accent-2);
+      color: var(--accent-2);
+      background: #1c2530;
+    }
+
+    .upload .icon {
+      font-size: 32px;
+    }
+
+    .upload input {
+      display: none;
+    }
+
+    .upload .file {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .params {
+      margin-top: 14px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 90px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .row label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .row input,
+    .row select {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      width: 100%;
+    }
+
+    .row input[type=checkbox] {
+      width: auto;
+      justify-self: end;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--accent);
+      color: #06121a;
+      border: 0;
+      border-radius: 8px;
+      padding: 9px 14px;
+      cursor: pointer;
+      flex: 1;
+      transition: 0.15s;
+    }
+
+    button:hover {
+      filter: brightness(1.1);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      filter: none;
+    }
+
+    button.ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    button.ghost:hover {
+      background: var(--panel-2);
+    }
+
+    .viewer {
+      display: grid;
+      grid-template-rows: auto 1fr 220px;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .progress {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .progress .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .progress .label {
+      font-size: 13px;
+    }
+
+    .progress .pct {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--accent);
+    }
+
+    .bar {
+      height: 12px;
+      background: var(--panel-2);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      position: relative;
+    }
+
+    .bar>.fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.25s ease-out;
+    }
+
+    .bar.error>.fill {
+      background: linear-gradient(90deg, var(--err), #ff8a65);
+    }
+
+    .bar.done>.fill {
+      background: linear-gradient(90deg, var(--accent-2), var(--ok));
+    }
+
+    .stages {
+      margin-top: 10px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .stages .stage {
+      font-size: 10.5px;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: var(--panel-2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .stages .stage.active {
+      background: var(--accent);
+      color: #06121a;
+      border-color: var(--accent);
+    }
+
+    .stages .stage.done {
+      background: #1d3a25;
+      color: var(--ok);
+      border-color: #2a5e36;
+    }
+
+    .viewports {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .viewport {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #0a0d12;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .viewport .title {
+      padding: 8px 12px;
+      font-size: 12px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .viewport .title strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .viewport .canvas-wrap {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+    }
+
+    .viewport canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .viewport .legend {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--muted);
+      background: rgba(15, 17, 21, 0.75);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .viewport .legend .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    .viewport .placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .terminal {
+      background: #08090d;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .terminal .head {
+      padding: 0 14px 6px;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .terminal .head .dots {
+      display: flex;
+      gap: 5px;
+    }
+
+    .terminal .head .dots>span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #2a2f3a;
+    }
+
+    .terminal .head .dots>span:nth-child(1) {
+      background: #ff5c5c;
+    }
+
+    .terminal .head .dots>span:nth-child(2) {
+      background: var(--warn);
+    }
+
+    .terminal .head .dots>span:nth-child(3) {
+      background: var(--ok);
+    }
+
+    .terminal .body {
+      flex: 1;
+      overflow: auto;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.45;
+      padding: 8px 14px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .terminal .body .info {
+      color: var(--text);
+    }
+
+    .terminal .body .warn {
+      color: var(--warn);
+    }
+
+    .terminal .body .error {
+      color: var(--err);
+    }
+
+    .terminal .body .ok {
+      color: var(--ok);
+    }
+
+    .terminal .body .ts {
+      color: var(--muted);
+      margin-right: 8px;
+    }
+
+    .results {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .results .pill {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel-2);
+    }
+
+    .results .pill.ok {
+      color: var(--ok);
+      border-color: #2a5e36;
+    }
+
+    .results .pill.warn {
+      color: var(--warn);
+      border-color: #6b5320;
+    }
+
+    .results .pill.err {
+      color: var(--err);
+      border-color: #6b3232;
+    }
+
+    a.btn {
+      text-decoration: none;
+    }
+
+    @media (max-width: 1100px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .viewports {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>S4 Unified Slicer</h1>
+    <span class="sub">non-planar 4-axis slicing — STL → R/θ/Z/B G-code</span>
+    <span class="badge" id="backend-tag">fast backend</span>
+  </header>
+
+  <main>
+    <!-- LEFT — controls -->
+    <section class="panel">
+      <h2>1 · Upload STL</h2>
+      <label class="upload" id="dropzone">
+        <input type="file" id="stl-input" accept=".stl" />
+        <div class="icon">⬆</div>
+        <div>Drop your STL here, or click to browse</div>
+        <div class="file" id="file-info">no file selected</div>
+      </label>
+
+      <h2 style="margin-top: 18px">2 · Parameters</h2>
+      <div class="params">
+        <div class="row"><label>Max overhang (°)</label> <input id="p-max-overhang" type="number" step="1" value="30">
+        </div>
+        <div class="row"><label>Rotation iter</label> <input id="p-rot-iter" type="number" step="10" value="100"></div>
+        <div class="row"><label>Deform iter</label> <input id="p-deform-iter" type="number" step="50" value="500"></div>
+        <div class="row"><label>Deform passes</label> <input id="p-num-passes" type="number" step="1" value="1"></div>
+        <div class="row"><label>Layer height (mm)</label> <input id="p-layer-height" type="number" step="0.05"
+            value="0.2"></div>
+        <div class="row"><label>Perimeters</label> <input id="p-perimeters" type="number" step="1" value="2"></div>
+        <div class="row"><label>Fill density</label> <input id="p-fill-density" type="text" value="15%"></div>
+        <div class="row"><label>Seg size (mm)</label> <input id="p-seg-size" type="number" step="0.1" value="0.6"></div>
+        <div class="row"><label>Cartesian output</label> <input id="p-cartesian" type="checkbox"></div>
+        <div class="row"><label>Fast backend (≈100×)</label> <input id="p-fast" type="checkbox" checked></div>
+      </div>
+
+      <div class="actions">
+        <button id="start-btn" disabled>Slice</button>
+        <button id="stop-btn" disabled class="ghost">Reset</button>
+      </div>
+
+      <div style="margin-top:14px; font-size:11px; color: var(--muted); line-height:1.5;">
+        Tip: small/medium STLs slice in seconds with the fast backend on.
+        The reference backend (unchecked) is the unmodified upstream code,
+        kept around for verification.
+      </div>
+    </section>
+
+    <!-- RIGHT — viewer + progress + terminal -->
+    <section class="viewer">
+      <div class="progress" id="progress-card">
+        <div class="top">
+          <div class="label" id="progress-label">Idle — upload an STL to begin.</div>
+          <div class="pct" id="progress-pct">0%</div>
+        </div>
+        <div class="bar" id="progress-bar">
+          <div class="fill"></div>
+        </div>
+        <div class="stages" id="stages"></div>
+        <div class="results" id="results"></div>
+      </div>
+
+      <div class="viewports">
+        <div class="viewport" id="vp-input">
+          <div class="title">
+            <strong>Input STL</strong>
+            <span id="vp-input-meta">—</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="canvas-input"></canvas>
+            <div class="placeholder" id="vp-input-ph">no STL loaded</div>
+            <div class="legend"><span class="dot" style="background:#4fc3f7"></span>geometry</div>
+          </div>
+        </div>
+        <div class="viewport" id="vp-path">
+          <div class="title">
+            <strong>4-axis path preview</strong>
+            <span id="vp-path-meta">—</span>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="canvas-path"></canvas>
+            <div class="placeholder" id="vp-path-ph">path appears here once slicing finishes</div>
+            <div class="legend">
+              <span class="dot" style="background:linear-gradient(90deg, #4fc, #f4c)"></span>b-tilt (hue)
+              <span style="margin-left:10px"></span>
+              <span class="dot" style="background:repeating-linear-gradient(90deg, #555, #555 4px, #aaa 4px, #aaa 8px)"></span>z-zebra (brightness)
+              <span style="margin-left:10px"></span>
+              <span class="dot" style="background:#ff8a65; opacity: 0.3"></span>travel
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="terminal">
+        <div class="head">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <div>terminal &mdash; pipeline log</div>
+          <div id="term-status">idle</div>
+        </div>
+        <div class="body" id="terminal"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/three.min.js"></script>
+  <script src="/static/orbitcontrols.js"></script>
+  <script src="/static/app.js"></script>
+
+</body>
+
+</html>

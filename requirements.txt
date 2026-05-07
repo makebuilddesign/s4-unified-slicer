@@ -1,0 +1,11 @@
+numpy
+scipy
+networkx
+pyvista
+tetgen
+pygcode
+trimesh
+numba
+fastapi
+uvicorn[standard]
+python-multipart
