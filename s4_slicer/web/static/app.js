@@ -337,39 +337,23 @@
       addLog("[ui] empty path preview", "warn");
       return;
     }
-    // Build line segments — split by extrusion vs travel for two colours.
     const segE = []; const segT = [];
     const colE = []; 
-    
-    // Find rotation range for normalisation
-    let minR = 1e9, maxR = -1e9;
-    if (rots && rots.length) {
-      for (let i = 0; i < rots.length; i++) {
-        if (rots[i] < minR) minR = rots[i];
-        if (rots[i] > maxR) maxR = rots[i];
-      }
-    }
-    const rRange = (maxR - minR) || 1;
     const c = new THREE.Color();
 
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i-1]; const b = pts[i];
       const dx = a[0]-b[0], dy = a[1]-b[1], dz = a[2]-b[2];
-      if (dx*dx + dy*dy + dz*dz > 10000) continue;
+      const d2 = dx*dx + dy*dy + dz*dz;
+      if (d2 > 10000) continue;
       
+      const dist = Math.sqrt(d2);
+
       if (prev.extruding[i] && prev.extruding[i-1]) {
         segE.push(...a, ...b);
-        // Color based on B-axis tilt (Hue) and Z-quantisation (Brightness/Zebra)
-        // This makes layers distinct while highlighting non-planar work.
-        const rVal = rots ? rots[i] : 0;
-        const zVal = b[2];
-        
-        // Hue: Blue (0) for min tilt, Red (0.66) for max tilt
-        const h = 0.5 + 0.5 * ((rVal - minR) / rRange); 
-        // Brightness: alternate every 0.8mm (approx 2-4 layers)
-        const l = 0.4 + 0.25 * (Math.floor(zVal / 0.8) % 2);
-        
-        c.setHSL(h % 1.0, 0.8, l);
+        // Color based on segment length (0.0 to 5.0mm scale)
+        const t = Math.min(1.0, dist / 5.0);
+        c.setHSL(0.7 * (1.0 - t), 1.0, 0.5); // Blue (short) -> Red (long)
         colE.push(c.r, c.g, c.b, c.r, c.g, c.b);
       } else {
         segT.push(...a, ...b);
@@ -379,36 +363,17 @@
     const mkLine = (arr, colArr, baseCol, opacity, useColors) => {
       if (!arr.length) return null;
       const g = new THREE.BufferGeometry();
-      const posAttr = new THREE.BufferAttribute(new Float32Array(arr), 3);
-      g.setAttribute("position", posAttr);
-      
-      const group = new THREE.Group();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(arr), 3));
       if (useColors && colArr) {
         g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colArr), 3));
       }
-
       const m = new THREE.LineBasicMaterial({ 
         color: useColors ? 0xffffff : baseCol, 
         vertexColors: useColors,
         transparent: true, 
-        opacity
+        opacity 
       });
-
-      // Render the line segments multiple times with tiny offsets to fake thickness
-      // This is a common workaround for WebGL's 1px line limit.
-      const offsets = [
-        [0,0,0], 
-        [0.05, 0.05, 0], [-0.05, -0.05, 0], 
-        [0.05, -0.05, 0], [-0.05, 0.05, 0]
-      ];
-      
-      offsets.forEach(off => {
-        const line = new THREE.LineSegments(g, m);
-        line.position.set(...off);
-        group.add(line);
-      });
-
-      return group;
+      return new THREE.LineSegments(g, m);
     };
 
     const lE = mkLine(segE, colE, 0x66ffa0, 0.95, true);
