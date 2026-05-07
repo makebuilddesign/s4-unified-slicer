@@ -1,6 +1,6 @@
 # S4 Unified Slicer
 
-<video src="https://github.com/makebuilddesign/s4-unified-slicer/raw/main/docs/img/s4slicer.mp4" 
+<video src="https://github.com/makebuilddesign/s4-unified-slicer/raw/main/docs/img/s4unified.mp4" 
        controls="controls" 
        muted="muted" 
        loop="loop" 
