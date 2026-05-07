@@ -108,11 +108,8 @@ def _build_path_preview(out_gcode: Path, polar: bool) -> dict:
                     r_machine = float(d.get("X", "0"))
                     z_machine = float(d.get("Z", "0"))
                     
-                    # Undo the nozzle offset correction to get back to nozzle tip XYZ
-                    # Machine math was: r_mach = r_tip - sin(rot)*n_off
-                    #                  z_mach = z_tip + (cos(rot)-1)*n_off
-                    r = r_machine + np.sin(rot) * n_off
-                    z = z_machine - (np.cos(rot) - 1) * n_off
+                    r = r_machine
+                    z = z_machine
                     
                     th = np.deg2rad(c)
                     x  = r * np.cos(th)
@@ -330,8 +327,25 @@ def make_app() -> FastAPI:
         return JSONResponse(_stl_preview(Path(d)))
 
     # ----- download --------------------------------------------------------
-    @app.get("/api/download/{job_id}/gcode")
-    def download_gcode(job_id: str):
+    @app.get("/api/download/{job_id}/gcode_cartesian")
+    def download_gcode_cartesian(job_id: str):
+        """Download the Cartesian X,Y,Z,B G-code matching the preview exactly."""
+        with JOBS_LOCK:
+            job = JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(404, "Unknown job_id")
+        out = job.result.get("output_gcode") if job.result else None
+        if not out:
+            raise HTTPException(425, "Output not yet available")
+        cartesian_out = str(out).replace(".gcode", "_preview.gcode") if ".gcode" in str(out) else str(out) + "_preview.gcode"
+        if not Path(cartesian_out).exists():
+            raise HTTPException(425, "Cartesian output not yet available")
+        return FileResponse(cartesian_out, filename=Path(cartesian_out).name,
+                            media_type="text/plain")
+
+    @app.get("/api/download/{job_id}/gcode_polar")
+    def download_gcode_polar(job_id: str):
+        """Download the raw polar (C,X,Z,B) G-code for the actual machine."""
         with JOBS_LOCK:
             job = JOBS.get(job_id)
         if job is None:

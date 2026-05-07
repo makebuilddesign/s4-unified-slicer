@@ -468,8 +468,10 @@ def _write_output(out_gcode, np_pos_f, np_rot_f, new_cmd, new_ext,
     prev_theta = 0.0
     theta_acc  = 0.0
     n_lines    = 0
-    with open(out_gcode, "w") as fh:
-        fh.write("; S4 Unified Slicer — non-planar 4-axis output\n")
+    cartesian_path = out_gcode.replace(".gcode", "_preview.gcode") if ".gcode" in out_gcode else out_gcode + "_preview.gcode"
+    with open(out_gcode, "w") as fh, open(cartesian_path, "w") as fh_cart:
+        # Headers for polar file
+        fh.write("; S4 Unified Slicer — non-planar 4-axis output (polar)\n")
         fh.write("G94 ; mm/min feed\n")
         fh.write("G28 ; home\n")
         fh.write("M83 ; relative extrusion\n")
@@ -478,22 +480,29 @@ def _write_output(out_gcode, np_pos_f, np_rot_f, new_cmd, new_ext,
         fh.write("G90 ; absolute positioning\n")
         fh.write(f"G0 C0 X0 Z20 B0 ; go to start\n")
         fh.write("G93 ; inverse time feed\n")
+        # Headers for cartesian preview file
+        fh_cart.write("; S4 Unified Slicer — non-planar 4-axis output (cartesian preview)\n")
+        fh_cart.write("; This file matches the Web UI preview exactly\n")
+        fh_cart.write("G90 ; absolute positioning\n")
+        fh_cart.write("M83 ; relative extrusion\n")
+        fh_cart.write("G1 E10 ; prime extruder\n")
+        fh_cart.write("G0 X0 Y0 Z20 B0 ; go to start\n")
         for k in range(len(np_pos_f)):
             pos = np_pos_f[k]
             rot = float(np_rot_f[k])
             if (np.all(np.isnan(pos)) or pos[2] < 0):
                 continue
-            zhop  = 1 if new_travel[k] else 0
-            r     = float(np.linalg.norm(pos[:2]))
-            theta = float(np.arctan2(pos[1], pos[0]))
-            z     = float(pos[2])
-            r += -np.sin(rot) * (p.nozzle_offset + zhop)
-            z += (np.cos(rot) - 1) * (p.nozzle_offset + zhop) + zhop
+            zhop = 1 if new_cmd[k] == 0 else 0
+            r = np.linalg.norm(pos[:2])
+            theta = np.arctan2(pos[1], pos[0])
+            z = pos[2] + zhop
             dt = theta - prev_theta
             if dt >  np.pi: dt -= 2 * np.pi
             if dt < -np.pi: dt += 2 * np.pi
             theta_acc += dt
             cmd_str = "G01" if new_cmd[k] == 1 else "G00"
+
+            # --- Polar file (for machine) ---
             if p.output_polar:
                 s = (f"{cmd_str} C{np.rad2deg(theta_acc):.5f} "
                      f"X{r:.5f} Z{z:.5f} B{np.rad2deg(rot):.5f}")
@@ -512,11 +521,25 @@ def _write_output(out_gcode, np_pos_f, np_rot_f, new_cmd, new_ext,
                 fh.write("G94\n")
                 no_feed = True
             fh.write(s + "\n")
-            n_lines += 1
             if no_feed:
                 fh.write("G93\n")
+
+            # --- Cartesian preview file (matches Web UI exactly) ---
+            s_cart = (f"{cmd_str} X{pos[0]:.5f} Y{pos[1]:.5f} "
+                      f"Z{pos[2]:.5f} B{np.rad2deg(rot):.5f}")
+            if not np.isnan(ev):
+                s_cart += f" E{ev:.4f}"
+            if not np.isnan(iv):
+                s_cart += f" F{iv:.4f}"
+            else:
+                s_cart += " F20000"
+            fh_cart.write(s_cart + "\n")
+
+            n_lines += 1
             prev_theta = theta
     log(f"[gcode] wrote {n_lines} motion lines to {out_gcode}")
+    log(f"[gcode] wrote cartesian preview to {cartesian_path}")
     if pr is not None:
         pr.stage("transform", 1.0)
     return out_gcode
+

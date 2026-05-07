@@ -5,7 +5,7 @@ long_desc = open("README.md").read() if os.path.exists("README.md") else ""
 
 setup(
     name="s4-unified-slicer",
-    version="2.0.0",
+    version="1.0.0",
     description="Single-step non-planar 4-axis slicer (STL → 4-axis G-code) with web UI and ~100x faster backend.",
     long_description=long_desc,
     long_description_content_type="text/markdown",
